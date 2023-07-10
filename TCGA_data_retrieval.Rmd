@@ -1,0 +1,82 @@
+---
+title: "TCGA_data_retrieval"
+output: html_document
+date: '2023-07-10'
+---
+
+Download the repository TCGA-Assembler-2: https://github.com/compgenome365/TCGA-Assembler-2
+
+Load libraries
+```{r setup, include=FALSE}
+library(HGNChelper)
+library(RCurl)
+library(httr)
+library(stringr)
+library(digest)
+library(bitops)
+```
+
+Check data
+```{r}
+setwd("/home/marcelo/Downloads/TCGA-Assembler-2-master/TCGA-Assembler")
+source("./Module_A.R")##to download data
+source("./Module_B.R")##for data processing
+```
+
+Select patient IDs 
+```{r}
+vPatientID <- c("TCGA-A7-A13F", "TCGA-AO-A12B", "TCGA-AR-A1AP", "TCGA-AR-A1AQ", "TCGA-AR-A1AS", "TCGA-AR-A1AV", "TCGA-AR-A1AW", "TCGA-BH-A0BZ", "TCGA-BH-A0DD", "TCGA-BH-A0DG")
+```
+
+Downloading of data (RNA Seq and CNA)
+- Module A functions are used to download data of seven different platforms for the samples and save the data files. There are four input arguments taken by every data downloading
+    *cancerType
+    *assayPlatform
+    *inputPatientIDs
+    *saveFolderName
+```{r}
+path_geneExp <- DownloadRNASeqData(cancerType = "BRCA", assayPlatform = "gene.normalized_RNAseq", inputPatientIDs = vPatientID, saveFolderName = ".")
+path_copyNumber <- DownloadCNAData(cancerType = "BRCA", assayPlatform = "cna_cnv.hg19", inputPatientIDs = vPatientID, saveFolderName = ".")
+path_miRNAExp <- DownloadmiRNASeqData(cancerType = "BRCA", assayPlatform = "mir_HiSeq.hg19.mirbase20", inputPatientIDs = vPatientID, saveFolderName = ".")
+path_somaticMutation <- DownloadSomaticMutationData(cancerType = "BRCA", assayPlatform = "somaticMutation_DNAseq", inputPatientIDs = vPatientID, saveFolderName = ".")
+```
+
+Data processing (RNA Seq and CNA)
+- Module B functions are used for processing
+    *Quality control (validate/correct the gene symbols and draw box plot of data for identifying outliers)
+    *Remove redundant genomic features descriptions
+
+```{r}
+list_geneExp <- ProcessRNASeqData(inputFilePath = path_geneExp[1],
+                                  outputFileName = paste("BRCA", "geneExp", sep = "__"), dataType =
+                                    "geneExp", outputFileFolder = "./ManualExampleData/")
+list_copyNumber <- ProcessCNAData(inputFilePath = path_copyNumber[1],
+                                  outputFileName = paste("BRCA", "copyNumber", sep = "__"),
+                                  refGenomeFile = "./SupportingFiles/Hg19GenePosition.txt",
+                                  outputFileFolder = "./ManualExampleData/")
+```
+
+Advanced Data processing (RNA Seq and CNA)
+- Des: Description of genomic features 
+- Data: Data analyze
+- DataType: Indicates the data platform
+
+*CombineMultiPlatformData: This command identifies the samples that are covered by all seven platforms and merges their data
+```{r}
+l_geneExp <- list(Des = list_geneExp$Des, Data = list_geneExp$Data,dataType = "geneExp")
+l_copyNumber <- list(Des = list_copyNumber$Des, Data = list_copyNumber$Data, dataType = "copyNumber")
+inputDataList <- vector("list", 2)
+inputDataList[[1]] <- l_copyNumber
+inputDataList[[2]] <- l_geneExp
+list_CombinedData <- CombineMultiPlatformData(inputDataList =  inputDataList)
+```
+
+Additional features
+```{r}
+######Download BRCA RNA seq for all patients and normal
+geneExp <- DownloadRNASeqData(cancerType = "BRCA", assayPlatform = "gene.normalized_RNAseq", saveFolderName = ".")
+
+######Download BRCA RNA seq for all patients (TP)
+geneExp2 <- DownloadRNASeqData(cancerType = "BRCA", assayPlatform = "gene.normalized_RNAseq",tissueType = "TP",  saveFolderName = ".")
+```
+
